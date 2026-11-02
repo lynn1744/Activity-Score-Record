@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>活動得分計算</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --primary: #2563eb;
+      --primary-soft: #dbeafe;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft JhengHei", "Segoe UI", sans-serif;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 24px auto;
+      padding: 20px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 2vw, 2.3rem);
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+      padding: 16px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 140px;
+    }
+    .field label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .field input {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 1rem;
+      background: #fff;
+    }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 0.98rem;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .primary {
+      background: var(--primary);
+      color: white;
+    }
+    .primary:hover { filter: brightness(1.05); }
+    .secondary {
+      background: #eef2ff;
+      color: #374151;
+    }
+    .secondary:hover { background: #e0e7ff; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      overflow: hidden;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px 6px;
+      text-align: center;
+      vertical-align: middle;
+      word-break: break-word;
+    }
+    th {
+      background: #f8fafc;
+      font-weight: 700;
+      color: var(--text);
+    }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 8px;
+      font-size: 0.95rem;
+      text-align: center;
+    }
+    .checkbox-cell {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 42px;
+    }
+    input[type="checkbox"] {
+      width: 22px;
+      height: 22px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .result {
+      font-weight: 700;
+      color: var(--text);
+    }
+    .score-green { color: var(--success); }
+    .score-red { color: var(--danger); }
+    .score-blue { color: var(--primary); }
+
+    .summary {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .summary-box {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .summary-box .label { color: var(--muted); font-size: 0.8rem; }
+    .summary-box .value { font-size: 1.4rem; font-weight: 700; margin-top: 4px; }
+
+    @media (max-width: 768px) {
+      .container { padding: 12px; }
+      .header { align-items: flex-start; }
+      table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>活動得分計算系統</h1>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="secondary" type="button" onclick="addRow()">＋ 新增隊伍</button>
+        <button class="primary" type="button" onclick="downloadCSV()">匯出 CSV</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="controls">
+        <div class="field">
+          <label>完成時間上限（分鐘）</label>
+          <input id="classTime" type="number" min="1" step="1" value="60" />
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 120px;">組名</th>
+            <th style="width: 120px;">收集純物質體積</th>
+            <th style="width: 120px;">殘余果殼體積</th>
+            <th style="width: 110px;">Performance<br>(純度 %)</th>
+            <th style="width: 110px;">完成時間<br>(分鐘)</th>
+            <th style="width: 110px;">Efficiency<br>(效率分)</th>
+            <th style="width: 110px;">Iteration<br>(0–10)</th>
+            <th style="width: 110px;">預測純度<br>(%)</th>
+            <th style="width: 110px;">Prediction<br>(預測任務分)</th>
+            <th style="width: 110px;">No-electricity<br>(無電)</th>
+            <th style="width: 110px;">Bonus<br>(加分)</th>
+            <th style="width: 110px;">Total<br>(總分)</th>
+            <th style="width: 80px;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="teamTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="summary">
+      <div class="summary-box">
+        <div class="label">總隊伍數</div>
+        <div class="value" id="totalTeams">0</div>
+      </div>
+      <div class="summary-box">
+        <div class="label">最高分</div>
+        <div class="value" id="maxScore">0</div>
+      </div>
+      <div class="summary-box">
+        <div class="label">最低分</div>
+        <div class="value" id="minScore">0</div>
+      </div>
+      <div class="summary-box">
+        <div class="label">平均分</div>
+        <div class="value" id="avgScore">0</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const defaultRows = [
+      { name: "A隊", pure: "", husk: "", time: "", iteration: "", predicted: "", noElectric: false }
+    ];
+
+    let rows = loadRows();
+
+    const teamTableBody = document.getElementById("teamTableBody");
+    const classTimeInput = document.getElementById("classTime");
+
+    function loadRows() {
+      const saved = localStorage.getItem("activityScoreRows");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.warn("讀取資料失敗，使用預設資料");
+        }
+      }
+      return JSON.parse(JSON.stringify(defaultRows));
+    }
+
+    function saveRows() {
+      localStorage.setItem("activityScoreRows", JSON.stringify(rows));
+    }
+
+    function addRow() {
+      rows.push({
+        name: "",
+        pure: "",
+        husk: "",
+        time: "",
+        iteration: "",
+        predicted: "",
+        noElectric: false
+      });
+      saveRows();
+      renderRows();
+      updateSummary();
+    }
+
+    function removeRow(index) {
+      if (rows.length <= 1) {
+        rows = JSON.parse(JSON.stringify(defaultRows));
+      } else {
+        rows.splice(index, 1);
+      }
+      saveRows();
+      renderRows();
+      updateSummary();
+    }
+
+    function calcPurity(pure, husk) {
+      const p = parseFloat(pure);
+      const h = parseFloat(husk);
+
+      if (!Number.isFinite(p) || p <= 0) return 0;
+      return ((p - h) / p) * 100;
+    }
+
+    function getRowResult(row, classLimit) {
+      const pure = parseFloat(row.pure) || 0;
+      const husk = parseFloat(row.husk) || 0;
+      const time = parseFloat(row.time) || 0;
+      const iteration = parseFloat(row.iteration) || 0;
+      const predicted = parseFloat(row.predicted) || 0;
+
+      const actualPurity = calcPurity(pure, husk);
+      let efficiency = 0;
+      if (Number.isFinite(time) && time > 0 && time <= classLimit) {
+        efficiency = actualPurity / time;
+      }
+
+      const predictionScore = Math.max(0, 10 - Math.abs(predicted - actualPurity));
+      const bonus = row.noElectric ? 10 : 0;
+      const total = actualPurity + efficiency + iteration + predictionScore + bonus;
+
+      return {
+        actualPurity,
+        efficiency,
+        predictionScore,
+        bonus,
+        total
+      };
+    }
+
+    function formatValue(val, digits = 2) {
+      if (!Number.isFinite(val)) return "0";
+      return Number(val).toFixed(digits);
+    }
+
+    function renderRows() {
+      teamTableBody.innerHTML = "";
+      rows.forEach((row, index) => {
+        const result = getRowResult(row, parseFloat(classTimeInput.value) || 60);
+
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td>
+            <input type="text" value="${row.name || ''}" data-index="${index}" data-field="name" placeholder="例如 A隊" />
+          </td>
+          <td>
+            <input type="number" min="0" step="0.01" value="${row.pure}" data-index="${index}" data-field="pure" />
+          </td>
+          <td>
+            <input type="number" min="0" step="0.01" value="${row.husk}" data-index="${index}" data-field="husk" />
+          </td>
+          <td class="result score-blue">${formatValue(result.actualPurity)}%</td>
+          <td>
+            <input type="number" min="0" step="0.01" value="${row.time}" data-index="${index}" data-field="time" />
+          </td>
+          <td class="result score-green">${formatValue(result.efficiency)}</td>
+          <td>
+            <input type="number" min="0" max="10" step="0.1" value="${row.iteration}" data-index="${index}" data-field="iteration" />
+          </td>
+          <td>
+            <input type="number" min="0" max="100" step="0.01" value="${row.predicted}" data-index="${index}" data-field="predicted" />
+          </td>
+          <td class="result score-blue">${formatValue(result.predictionScore)}</td>
+          <td class="checkbox-cell">
+            <input type="checkbox" data-index="${index}" data-field="noElectric" ${row.noElectric ? "checked" : ""} />
+          </td>
+          <td class="result score-green">${formatValue(result.bonus)}</td>
+          <td class="result score-red">${formatValue(result.total)}</td>
+          <td>
+            <button class="secondary" type="button" data-index="${index}" onclick="removeRow(${index})">刪除</button>
+          </td>
+        `;
+        teamTableBody.appendChild(tr);
+      });
+
+      teamTableBody.querySelectorAll("input[data-field]").forEach(input => {
+        input.addEventListener("input", handleInputChange);
+        input.addEventListener("change", handleInputChange);
+      });
+    }
+
+    function handleInputChange(event) {
+      const index = Number(event.target.dataset.index);
+      const field = event.target.dataset.field;
+
+      if (!rows[index]) return;
+
+      if (field === "noElectric") {
+        rows[index].noElectric = event.target.checked;
+      } else if (field === "name") {
+        rows[index].name = event.target.value;
+      } else {
+        rows[index][field] = event.target.value;
+      }
+
+      saveRows();
+      renderRows();
+      updateSummary();
+    }
+
+    classTimeInput.addEventListener("input", () => {
+      renderRows();
+      updateSummary();
+    });
+
+    function updateSummary() {
+      const valid = rows.filter(row => row.name || row.pure || row.husk || row.time || row.iteration || row.predicted || row.noElectric);
+
+      const classLimit = parseFloat(classTimeInput.value) || 60;
+      const totals = valid.map(row => getRowResult(row, classLimit).total);
+
+      document.getElementById("totalTeams").textContent = valid.length;
+      document.getElementById("maxScore").textContent = totals.length ? Math.max(...totals).toFixed(2) : "0.00";
+      document.getElementById("minScore").textContent = totals.length ? Math.min(...totals).toFixed(2) : "0.00";
+      document.getElementById("avgScore").textContent = totals.length ? (totals.reduce((a, b) => a + b, 0) / totals.length).toFixed(2) : "0.00";
+    }
+
+    function downloadCSV() {
+      const classLimit = parseFloat(classTimeInput.value) || 60;
+      const rowsForExport = rows.map((row, index) => {
+        const result = getRowResult(row, classLimit);
+        return {
+          組名: row.name || `隊伍 ${index + 1}`,
+          收集純物質體積: row.pure || 0,
+          殘余果殼體積: row.husk || 0,
+          Performance: result.actualPurity.toFixed(2),
+          完成時間: row.time || 0,
+          Efficiency: result.efficiency.toFixed(2),
+          Iteration: row.iteration || 0,
+          預測純度: row.predicted || 0,
+          Prediction: result.predictionScore.toFixed(2),
+          無電: row.noElectric ? "Y" : "N",
+          Bonus: result.bonus.toFixed(2),
+          Total: result.total.toFixed(2)
+        };
+      });
+
+      const headers = ["組名", "收集純物質體積", "殘余果殼體積", "Performance", "完成時間", "Efficiency", "Iteration", "預測純度", "Prediction", "無電", "Bonus", "Total"];
+      const csvRows = [
+        headers.join(","),
+        ...rowsForExport.map(r => headers.map(h => {
+          const value = r[h];
+          return `"${String(value).replace(/"/g, '""')}"`;
+        }).join(","))
+      ];
+
+      const blob = new Blob(["\uFEFF" + csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "activity_scores.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    renderRows();
+    updateSummary();
+  </script>
+</body>
+</html>
